@@ -1,0 +1,45 @@
+{
+  "summary": "Iteration 2 retest of the 6 fixes from iteration_1 + admin login sanity. Backend: new focused pytest file /app/backend/tests/test_security_iter2.py (7 tests, all pass) covering brute-force lockout (5x401 -> 6th 429, correct password also 429 during lockout, counter reset after successful login, demo admin still logs in) and CORS (evil origin preflight rejected 400 with no ACAO at app layer, evil origin actual request gets no ACAO, legit preview origin echoed + allow-credentials true). Re-ran TestHealthAuth from the existing regression suite: 12/12 pass (previously failing test_brute_force_lockout now PASSES). login_attempts collection cleared and all 3 demo accounts verified to still return 200. Frontend (Playwright, public preview URL): /beli 'Beli Voucher' buttons (buy-package-<id>) present on all 3 cards and open the buyer dialog; full purchase -> simulate pay -> voucher code flow works; 'Salin kode' click no longer creates a webpack dev overlay (only the fallback error toast 'Gagal menyalin otomatis. Salin manual: <code>' appears) and 'Beli Lagi' remains clickable; anonymous /beli and /login make ZERO GET /api/auth/me requests (no 401 noise); admin login (agungsetiadi220@gmail.com) works and dashboard renders. FAILED regression: admin dashboard at 390px STILL has horizontal scroll (document.scrollWidth = 487, window.scrollX reaches 97 after scrollTo).",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "CORS via public ingress", "issue": "App-level CORS is now correct (verified on localhost:8001: evil origin -> 400 'Disallowed CORS origin', legit origin echoed with allow-credentials). However the preview edge/ingress overwrites responses with 'access-control-allow-origin: *' for ALL origins and on actual (non-preflight) requests also adds 'access-control-allow-credentials: true'. That combination is rejected by browsers so credentialed cross-site access is still not possible, but it is infra behaviour outside app code - no action needed in app; note it so future CORS assertions are made against localhost:8001, not the public URL."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [],
+    "integration_issues": [],
+    "design_issues": [
+      {"screen": "Admin dashboard @390px (mobile)", "issues": ["NOT FIXED: horizontal page scroll persists - document.documentElement.scrollWidth=487 vs clientWidth=390 (page really scrolls, window.scrollX=97). Root cause: recharts renders .recharts-wrapper with an inline fixed width of 421px inside CardContent(h-80, p-6); 421 + 48px padding + border = 471px, which becomes the min-content width of the whole content column, so BOTH [data-testid=finance-chart-card] and [data-testid=recent-transactions-card] measure 471px wide (right edge 487). min-w-0 on the grid/Card is not enough because the child has an explicit px width. Suggested fix: add 'overflow-hidden' (or w-full min-w-0 overflow-hidden wrapper div) around the ResponsiveContainer, and/or give the chart card 'max-w-full'.", "Sonner toaster still overflows: [data-sonner-toaster] right edge = 406px at 390px viewport (16px overflow)."]},
+      {"screen": "Admin dashboard (desktop first paint)", "issues": ["Recharts warning still logged: 'The width(-1) and height(-1) of chart should be greater than 0' - set minWidth/minHeight or aspect on ResponsiveContainer."]},
+      {"screen": "/beli buyer dialog", "issues": ["A11y warning: 'Missing Description or aria-describedby for DialogContent' on buyer-dialog and simulate-pay-dialog."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/test_security_iter2.py",
+    "/app/backend/tests/cleanup_iter2.py",
+    "/app/test_reports/pytest/iter2_security.xml"
+  ],
+  "action_items": [
+    "REGRESSION 5 NOT FIXED: remove mobile horizontal scroll on /admin dashboard - wrap the recharts ResponsiveContainer in a div with 'w-full min-w-0 overflow-hidden' (the wrapper gets an inline width:421px that forces the 471px column) and constrain the sonner toaster width at <=390px (right edge currently 406px).",
+    "Optional: set minHeight/aspect on ResponsiveContainer to silence the recharts width(-1)/height(-1) warning.",
+    "Optional a11y: add DialogDescription (or aria-describedby) to buyer-dialog and simulate-pay-dialog on /beli."
+  ],
+  "critical_code_review_comments": [
+    "auth.py lockout implementation is correct: per-email counter in login_attempts, 429 after 5 fails for 15 minutes, counter deleted on success, timezone-naive locked_until handled. Note it is per-email only (no per-IP throttle), so an attacker can still spray many different emails; also a legitimate user can be locked out by someone else spamming their email (accepted tradeoff, but consider adding IP-based limiting).",
+    "server.py CORS now uses explicit allow_origins from CORS_ORIGINS env - verified correct at the app layer.",
+    "BeliVoucherPage clipboard now awaits inside try/catch and shows a distinct fallback toast with the code - verified no unhandled rejection / dev overlay.",
+    "AuthContext skips /auth/me when no localStorage token AND no access_token cookie - verified no anonymous 401s. Note document.cookie can never see the httpOnly cookie, so the check effectively relies on the localStorage token (which the previous report flagged as XSS exposure - still present)."
+  ],
+  "updated_files": [
+    "/app/backend/tests/test_security_iter2.py",
+    "/app/backend/tests/cleanup_iter2.py"
+  ],
+  "success_rate": {"backend": "100% (7/7 new security tests + 12/12 TestHealthAuth)", "frontend": "5 of 6 regression fixes verified (mobile horizontal scroll still broken)"},
+  "seed_data_creation": "Synthetic users bf_*/bf2_*/test_*@qadeliwifi.com created by lockout tests were deleted; login_attempts collection emptied (verified 0 docs) so demo credentials are not locked - admin/pelanggan/agen logins all return 200. Residue: 1 extra online voucher purchase (code DLWV5DAMW, Rp2.000 income) added to the current-month journal by the /beli UI test.",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "Admin agungsetiadi220@gmail.com/deliwifi123, pelanggan@deliwifi.id/pelanggan123, agen@deliwifi.id/agen123 - all valid, bcrypt $2b$ hashes (60 chars) confirmed for all three, httpOnly cookie set on login.",
+  "context_for_next_testing_agent": "Run: cd /app/backend && python -m pytest tests/test_security_iter2.py tests/backend_test.py -v. IMPORTANT: CORS headers must be asserted against http://localhost:8001 (app layer) because the preview ingress rewrites ACAO to '*'. After any lockout testing run 'python tests/cleanup_iter2.py' (deletes @qadeliwifi.com users and clears login_attempts) or the demo accounts stay locked for 15 min - note backend_test.py::test_login_wrong_password increments the admin counter, so always clean up after a full suite run. Only open item: mobile (390px) horizontal scroll on /admin caused by recharts inline width 421px in finance-chart-card.",
+  "rca_of_the_issue": "Mobile overflow: recharts ResponsiveContainer renders .recharts-wrapper with style width:421px (measured before the mobile layout settles). Because that is an explicit px width, min-w-0 on the parent grid/Card does not shrink it; the card's min-content width becomes 421 + 48px CardContent padding + borders = 471px, expanding the single-column grid and giving document.scrollWidth 487 at a 390px viewport. Needs overflow-hidden / max-w-full on the chart wrapper."
+}

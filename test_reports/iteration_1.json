@@ -1,0 +1,61 @@
+{
+  "summary": "Full end-to-end test of Deliwifi billing RT/RW-Net app (backend pytest suite + Playwright UI on public preview URL). Backend: 30 tests across auth/roles, dashboard overview, paket CRUD, pelanggan lifecycle (create/isolir/aktif/hapus + auto login account), tagihan generate/mark-paid/delete + income journal, voucher generate/assign/batches, agen CRUD + penjualan komisi 10%, keuangan expense CRUD, pengaturan (brand/midtrans/mikrotik/genieacs) + mikrotik test, portal pelanggan (invoices, WiFi SSID/pass validation), pembayaran mode simulasi (invoice + voucher publik), akses kontrol & 401/403 guards. 29/30 pass; only failure is the missing brute-force lockout (playbook requirement). Frontend: verified admin login + all 8 admin pages, create/isolir/aktifkan/hapus pelanggan, paket add/edit/nonaktif/hapus, generate tagihan + Lunas (Tunai) reflected in Keuangan, generate+assign voucher & all 4 filter tabs, tambah/hapus agen, catat/hapus pengeluaran with correct laba bersih, pengaturan save+persist+MikroTik test (mode simulasi message), portal pelanggan (status/paket/tagihan, bayar simulasi -> lunas, ubah SSID/password WiFi persisted), portal agen (jual voucher -> komisi Rp300, riwayat, income di admin), publik /beli (order -> bayar simulasi -> kode voucher), register tab -> 'Akun Belum Terhubung', role guards (pelanggan blocked from /admin, agen blocked from /portal), logout. All core billing flows work end-to-end in simulation mode as designed.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {"endpoint": "POST /api/auth/login", "issue": "No brute-force protection / rate limiting: 6+ consecutive wrong-password attempts all return 401 and the account can still log in immediately (playbook expects lockout/429 after 5 fails)"},
+      {"endpoint": "CORS (server.py)", "issue": "allow_origin_regex=r'https?://.*' with allow_credentials=True reflects ANY origin; with httpOnly SameSite=None cookies this allows cross-site credentialed requests. Use explicit origin allowlist from env."},
+      {"endpoint": "GET /api/admin/customers, POST /api/admin/customers", "issue": "Response includes plaintext pppoe_password (and customer doc stores it plaintext). Acceptable for PPPoE ops but should at least be admin-only/documented; consider not returning it in list endpoints."},
+      {"endpoint": "GET /api/admin/invoices", "issue": "Invoices whose customer was deleted show customer_name '-' and remain orphaned (paid ones cannot be deleted). Consider cascading or archiving invoices when a customer is deleted."},
+      {"endpoint": "GET /api/admin/overview, /api/admin/transactions", "issue": "Loads up to 200k/20k transactions into memory and aggregates in Python; will not scale. Use MongoDB $match/$group aggregation with date filters."}
+    ]
+  },
+  "frontend_issues": {
+    "ui_bugs": [
+      {"component": "BeliVoucherPage - copy voucher code", "issue": "navigator.clipboard.writeText() is called without try/catch and without awaiting; when clipboard permission is denied it throws an unhandled rejection (CRA dev overlay 'Uncaught runtime errors: Failed to execute writeText... permission denied' covered the whole page and blocked the 'Beli Lagi' button), yet the success toast 'Kode disalin' is still shown (misleading). Wrap in try/catch with a textarea fallback and only toast on success.", "selector": "[data-testid=\"copy-code-button\"]", "priority": "MEDIUM"},
+      {"component": "BeliVoucherPage - package cards", "issue": "Purchase is triggered only by clicking the whole Card (div, no role/tabindex, no visible CTA button). Not keyboard accessible and no obvious 'Beli' action for users.", "selector": "[data-testid^=\"package-card-\"]", "priority": "LOW"}
+    ],
+    "integration_issues": [
+      {"flow": "Public pages (/beli, /login)", "issue": "AuthContext calls GET /api/auth/me on every load for anonymous visitors, producing 401 console errors on public pages. Skip the call (or suppress) when no token/cookie exists.", "affected_selectors": ["[data-testid=\"beli-voucher-page\"]"]},
+      {"flow": "Auth token storage", "issue": "JWT is stored in localStorage ('deliwifi_token') in addition to the httpOnly cookie, re-exposing the token to XSS. Rely on the httpOnly cookie only (withCredentials) unless Bearer is required.", "affected_selectors": ["[data-testid=\"login-submit-button\"]"]}
+    ],
+    "design_issues": [
+      {"screen": "Admin dashboard @390px (mobile)", "issues": ["Page scrolls horizontally: the chart card ('Pemasukan vs Pengeluaran') has right edge at 480px vs 390px viewport (document scrollWidth 480). Chart container needs min-width:0 / responsive wrapper.", "Sonner toaster overflows viewport slightly (right=406px)."]},
+      {"screen": "Admin dashboard (desktop, first paint)", "issues": ["Recharts console warning 'width(-1) and height(-1) of chart should be greater than 0' on initial render — set explicit min height/aspect on ResponsiveContainer."]},
+      {"screen": "Keuangan / Jurnal on mobile", "issues": ["Transaction table (452px) requires inner horizontal scroll and cells wrap to 3 lines; consider a card list layout on small screens."]}
+    ]
+  },
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/cleanup_test_data.py",
+    "/app/test_reports/pytest/pytest_results.xml"
+  ],
+  "action_items": [
+    "Add brute-force protection to POST /api/auth/login (lock/429 after 5 failed attempts per email/IP with cooldown) — currently no lockout at all.",
+    "Tighten CORS: explicit allowed origins (env-driven) instead of allow_origin_regex 'https?://.*' with allow_credentials=True.",
+    "Fix clipboard copy on /beli: await navigator.clipboard.writeText inside try/catch with fallback; only show 'Kode disalin' on success.",
+    "Add a visible, keyboard-accessible 'Beli' button on hotspot package cards in /beli.",
+    "Fix mobile horizontal overflow on admin dashboard chart card (min-w-0 on chart wrapper).",
+    "Skip GET /api/auth/me for anonymous visitors on public routes to remove 401 console noise; drop JWT from localStorage and rely on httpOnly cookie."
+  ],
+  "critical_code_review_comments": [
+    "server.py: CORS wildcard regex + credentials is the highest-risk item; combine with SameSite=None httpOnly cookie means any site can call the API with the user's session.",
+    "auth.py: no login attempt throttling; also no password strength rule beyond length>=6 and no lockout/audit log.",
+    "routes_admin.py overview()/list_transactions(): full-collection fetch + Python filtering (to_list(200000)) — move to aggregation pipelines with date range $match.",
+    "seed.py: voucher DEMO01 seeding contains a no-op update ({'$set': {}}) and slicing logic that is hard to follow; simplify. seed_admin correctly updates the password hash when ADMIN_PASSWORD changes (verified: hash is $2b$).",
+    "Deleting a customer removes the user + customer doc but leaves invoices/transactions dangling (invoice list shows '-'); decide cascade or soft-delete."
+  ],
+  "updated_files": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/conftest.py",
+    "/app/backend/tests/cleanup_test_data.py"
+  ],
+  "success_rate": {"backend": "97% (29/30 pytest)", "frontend": "100% of tested flows functional; 2 UI bugs + 3 design issues found"},
+  "seed_data_creation": "Test data was created and then removed: QA customers (qa001, @qadeliwifi.com users), QA paket, QA agen, QA pengeluaran, test invoices (periods 2018-07/2098-xx/2099-xx) and TEST/QA voucher orders — all deleted via UI/API plus /app/backend/tests/cleanup_test_data.py. Demo state restored (INV-2026-08-DEMO back to 'unpaid', demo SSID reset to Deliwifi-Demo). Residue left intentionally: 7 sold vouchers (online/agen simulations) and their income transactions in the current month journal (~Rp 117.000 income shown on dashboard); agen demo saldo Rp 300.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "Admin agungsetiadi220@gmail.com/deliwifi123, pelanggan@deliwifi.id/pelanggan123, agen@deliwifi.id/agen123 — all valid and working (bcrypt $2b$, httpOnly cookie + Bearer token both accepted).",
+  "context_for_next_testing_agent": "Regression suite lives at /app/backend/tests/backend_test.py (pytest, uses REACT_APP_BACKEND_URL from /app/frontend/.env, conftest provides admin_client/pelanggan_client/agen_client). Run: cd /app/backend && python -m pytest tests/backend_test.py -v (pytest.ini already sets -n 2 --dist loadscope). Note: EmailStr rejects '.test' TLD — use @qadeliwifi.com for synthetic emails. Test-created data must be cleaned with tests/cleanup_test_data.py afterwards (paid invoices cannot be deleted via API). Known expected simulation behaviours: mikrotik ops return applied=false with 'mode simulasi' reason, /api/payments/* returns {simulated:true} and /api/payments/simulate/* completes payment. Only known backend failure: TestHealthAuth::test_brute_force_lockout (feature not implemented).",
+  "rca_of_the_issue": "Clipboard bug: BeliVoucherPage.jsx line 98 fires navigator.clipboard.writeText(code) synchronously in the onClick and immediately toasts success; the promise rejection (NotAllowedError when clipboard permission is denied/headless) is unhandled, triggering the webpack dev-server error overlay iframe which intercepts pointer events on the whole page (verified by Playwright: click on buy-again-button blocked by #webpack-dev-server-client-overlay). Brute-force gap: auth.py login() has no attempt counter/lockout — verified 6 wrong passwords all return 401 and a valid login immediately succeeds."
+}

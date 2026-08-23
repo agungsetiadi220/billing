@@ -1,0 +1,105 @@
+{
+  "theme": "light/dark toggle",
+  "archetype": "Swiss & High-Contrast / Soft Utility hybrid",
+  "typography": {
+    "heading_font": "Work Sans",
+    "body_font": "IBM Plex Sans",
+    "weights": {
+      "light": 300,
+      "regular": 400,
+      "medium": 500,
+      "semibold": 600,
+      "bold": 700
+    },
+    "scale": {
+      "h1": "text-4xl tracking-tight font-semibold",
+      "h2": "text-2xl tracking-tight font-semibold",
+      "h3": "text-xl font-medium",
+      "body": "text-base leading-relaxed",
+      "small": "text-sm text-muted-foreground",
+      "overline": "text-xs tracking-[0.2em] uppercase font-semibold text-muted-foreground"
+    }
+  },
+  "colors": {
+    "primary": "#1E3A8A",
+    "primary_hover": "#1E40AF",
+    "secondary": "#F8FAFC",
+    "accent": "#EA580C",
+    "background_light": "#FFFFFF",
+    "background_dark": "#0F172A",
+    "text_light": "#020617",
+    "text_dark": "#F8FAFC",
+    "success": "#10B981",
+    "warning": "#F59E0B",
+    "destructive": "#EF4444",
+    "border": "hsl(var(--border))"
+  },
+  "visual_enhancers": {
+    "shadows": "Ambient + direct layered shadows. Example: `shadow-sm` for default cards, `shadow-md` for hover.",
+    "borders": "1px crisp edges. `border border-border/40` or `border-slate-200`",
+    "radius": "Subtle roundness `rounded-lg` (8px) for containers, `rounded-md` for inputs/buttons.",
+    "glassmorphism": "Use ONLY for sticky headers or modals: `backdrop-blur-xl bg-background/80 border-b border-border/40`."
+  },
+  "layouts": {
+    "dashboard_grid": "High density grid: `grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4 or gap-6`.",
+    "bento_summary": "Top level stats using Bento approach. E.g., `col-span-1` for single metrics, `col-span-2 row-span-2` for Recharts graph.",
+    "spacing": "Generous internal padding for cards: `p-6` or `p-8`.",
+    "alignment": "Left-align forms, lists, and dense content for high readability."
+  },
+  "component_usage": {
+    "forms": "Shadcn `Form`, `Input`, `Select`. DO NOT use native HTML inputs.",
+    "tables": "Shadcn `Table` for customer lists, billing history, and active connections.",
+    "charts": "Shadcn Charts (Recharts) for Admin Dashboard (Pemasukan vs Pengeluaran).",
+    "cards": "Shadcn `Card` with customized spacing and minimal shadow.",
+    "dialogs": "Shadcn `Dialog` for generating vouchers or editing router settings.",
+    "tabs": "Shadcn `Tabs` for switching between PPPoE and Hotspot management."
+  },
+  "motion": {
+    "hover": "Subtle translations and shadow increases. E.g., `hover:-translate-y-0.5 hover:shadow-md transition-[transform,box-shadow] duration-200`.",
+    "entrance": "Staggered fade-in up for list items and dashboard cards.",
+    "loading": "Shadcn `Skeleton` for all async data sections."
+  },
+  "accessibility": {
+    "contrast": "Ensure text meets APCA/WCAG standards against backgrounds. Never use pure transparent backgrounds over content.",
+    "focus": "`focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2`.",
+    "testing": "All interactive elements must have `data-testid` (e.g., `data-testid=\"login-submit-button\"`)."
+  },
+  "media": {
+    "images": [
+      {
+        "url": "https://images.pexels.com/photos/29711663/pexels-photo-29711663.jpeg",
+        "description": "Sleek white wireless router",
+        "category": "Customer Portal / Router Settings illustration or Auth screen banner"
+      },
+      {
+        "url": "https://images.pexels.com/photos/33633752/pexels-photo-33633752.jpeg",
+        "description": "Indonesian Warung Snapshot",
+        "category": "Agent / Warung Portal Auth background or profile illustration"
+      }
+    ],
+    "icons": "Use `lucide-react` (already installed) for all dashboard icons (users, wifi, credit-card, activity, router, etc)."
+  },
+  "instructions_to_main_agent": [
+    "You are building a high-density SaaS dashboard for an Indonesian ISP (RT/RW-Net).",
+    "Implement 3 main roles/views: Admin, Customer, and Agent (Warung).",
+    "Use 'Work Sans' for headings and 'IBM Plex Sans' for body text. Install these via Google Fonts in index.html.",
+    "Ensure exact 1px borders and slight shadows on cards. Do not overuse massive shadows.",
+    "For the Admin Dashboard, implement a financial chart (pemasukan vs pengeluaran) using Recharts.",
+    "For the Customer Portal, focus on clear billing status, a prominent 'Pay via Payment Gateway' button, and a simple card to manage PPPoE router settings (SSID/Password).",
+    "For the Agent Portal, create a fast, POS-like interface to generate Hotspot Vouchers.",
+    "Use Lucide-react for all iconography.",
+    "Never use raw HTML <select> or <input type='date'>. Use Shadcn components exclusively for forms and interactions.",
+    "Ensure all interactive elements have data-testid attributes.",
+    "Language must be in Indonesian as requested."
+  ],
+  "UNIVERSAL_GUIDELINES_FOR_MAIN_AGENT": [
+    "Do not converge toward generic, 'on distribution' outputs. Avoid 'AI slop' aesthetics.",
+    "Create depth through layered design elements with z-index hierarchy.",
+    "Use 2-3x more spacing than feels comfortable. Cramped designs look cheap.",
+    "Every interaction needs micro-animations - hover states, transitions. Static = dead.",
+    "MUST NOT apply universal transition (e.g., transition: all). Add transitions for specific properties.",
+    "MUST NOT center align the app container in css. Left-align dense data for readability.",
+    "Use sonner for toast notifications.",
+    "Prioritize using pre-existing components from src/components/ui when applicable."
+  ]
+}

@@ -49,10 +49,11 @@
 - P2: Manajemen perangkat CPE via GenieACS (restart, ganti SSID ONU dari jarak jauh)
 
 ## Paket Instalasi Lokal (23 Juni 2026)
-- `/app/PANDUAN_INSTALASI_WINDOWS.md` — panduan lengkap self-host di laptop Windows 24 jam (Python, MongoDB, .env, MikroTik, Cloudflare Tunnel untuk webhook Midtrans, auto-startup, troubleshooting)
-- `/app/install.bat` — instalasi otomatis (venv, pip deps, yarn install, build frontend)
+- `/app/SETUP_OTOMATIS.bat` + `/app/setup_windows.ps1` — setup satu klik: cek Python/Node, auto-install MongoDB via winget, auto-buat backend\.env & frontend\.env (deteksi IP LAN, random JWT secret), install deps, build frontend, opsi auto-startup, langsung jalankan aplikasi
+- `/app/PANDUAN_INSTALASI_WINDOWS.md` — panduan lengkap self-host di laptop Windows 24 jam (cara termudah 3 langkah di bagian atas + panduan manual sebagai cadangan)
+- `/app/install.bat` — instalasi manual (venv, pip deps, yarn install, build frontend)
 - `/app/start.bat` — menjalankan backend (uvicorn :8001) + frontend (serve :3000)
-- Catatan: script .bat belum diuji di Windows asli (environment dev Linux)
+- Catatan: script .bat/.ps1 belum diuji di Windows asli (environment dev Linux)
 
 ## Next Tasks
 1. Minta user mengisi Midtrans Server/Client Key & kredensial MikroTik di menu Pengaturan

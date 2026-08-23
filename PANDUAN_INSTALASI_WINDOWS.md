@@ -1,6 +1,25 @@
 # Panduan Instalasi Deliwifi di Laptop Windows (Server 24 Jam)
 
-Panduan ini untuk menjalankan aplikasi Deliwifi di laptop Windows Anda sendiri.
+## CARA TERMUDAH (3 Langkah)
+
+1. **Simpan kode ke GitHub:** di Emergent klik **Save → Save to GitHub** (hubungkan akun GitHub Anda).
+2. **Download ZIP:** buka repo Anda di github.com → tombol hijau **Code → Download ZIP** → extract ke folder, misal `C:\deliwifi`.
+3. **Double-klik `SETUP_OTOMATIS.bat`** (klik kanan → Run as administrator). Script otomatis:
+   - Mengecek Python & Node.js
+   - Menginstall MongoDB (database) otomatis
+   - Membuat file konfigurasi `.env` otomatis (termasuk deteksi IP laptop)
+   - Menginstall semua dependensi & build aplikasi
+   - Menawarkan auto-startup saat laptop nyala
+   - Langsung menjalankan aplikasi
+
+Selesai! Buka browser → `http://localhost:3000` → login `agungsetiadi220@gmail.com` / `deliwifi123` (segera ganti password). Lalu lanjut ke **BAGIAN 6** untuk menghubungkan MikroTik.
+
+> Setiap mau menyalakan server berikutnya cukup double-klik **`start.bat`** (atau otomatis jika Anda pilih auto-startup).
+
+---
+
+## Panduan Manual (jika setup otomatis gagal)
+
 Estimasi waktu: **30–45 menit**. Yang sudah Anda punya: Node.js ✓
 
 ---

@@ -48,6 +48,12 @@
 - P2: Laporan keuangan export Excel/PDF, pencairan saldo komisi agen, redeem voucher → login hotspot otomatis
 - P2: Manajemen perangkat CPE via GenieACS (restart, ganti SSID ONU dari jarak jauh)
 
+## Paket Instalasi Lokal (23 Juni 2026)
+- `/app/PANDUAN_INSTALASI_WINDOWS.md` — panduan lengkap self-host di laptop Windows 24 jam (Python, MongoDB, .env, MikroTik, Cloudflare Tunnel untuk webhook Midtrans, auto-startup, troubleshooting)
+- `/app/install.bat` — instalasi otomatis (venv, pip deps, yarn install, build frontend)
+- `/app/start.bat` — menjalankan backend (uvicorn :8001) + frontend (serve :3000)
+- Catatan: script .bat belum diuji di Windows asli (environment dev Linux)
+
 ## Next Tasks
 1. Minta user mengisi Midtrans Server/Client Key & kredensial MikroTik di menu Pengaturan
 2. Uji end-to-end pembayaran Midtrans sandbox dengan kartu test

@@ -1,0 +1,70 @@
+{
+  "summary": "Verified the Windows installer bugfix (setup_windows.ps1 step 3/7 MongoDB winget fallback). PowerShell syntax validated with a real PowerShell 7.4.6 parser (0 parse errors). CRITICAL FINDING: the hardcoded fallback download URL https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-latest.msi does NOT exist - it returns HTTP 403 AccessDenied (S3 XML error, 243 bytes), so the new fallback will always fail for the user. Versioned URLs from https://downloads.mongodb.org/current.json (e.g. mongodb-windows-x86_64-8.0.29-signed.msi / 8.2.12 / 8.3.8) return HTTP 206 with content-type application/x-msi and are valid. Backend regression: 37/37 pytest tests pass (backend_test.py + test_security_iter2.py), cleanup_iter2.py run afterwards (login_attempts cleared, remaining 0); bcrypt hashes verified $2b$ len=60 for admin/agen/pelanggan; httpOnly cookie set on login; no application code touched by the installer fix.",
+  "backend_issues": {
+    "critical": [
+      {
+        "endpoint": "/app/setup_windows.ps1 line 43 (MongoDB fallback download)",
+        "issue": "URL https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-latest.msi returns HTTP 403 AccessDenied (verified via HEAD and ranged GET; body is an S3 <Error><Code>AccessDenied</Code> XML of 243 bytes). MongoDB does NOT publish a 'latest' MSI alias. Invoke-WebRequest will throw -> script hits Fail() -> the whole winget-0x8a15000f fix does not actually work. Must use a versioned URL, preferably resolved dynamically: Invoke-RestMethod https://downloads.mongodb.org/current.json, pick versions[] where production_release=true and downloads[] target='windows', edition='base' -> .msi, with a hardcoded verified fallback such as https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.29-signed.msi (verified 206, application/x-msi).",
+        "priority": "CRITICAL"
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 (whole script) / SETUP_OTOMATIS.bat",
+        "issue": "No administrator-elevation check. msiexec ADDLOCAL=ServerService (installs a Windows service) and Start-Service MongoDB both require elevation; without it msiexec returns exit 1603/1625 and the user gets a confusing failure. Add a self-elevation block at the top (WindowsPrincipal IsInRole Administrator -> Start-Process powershell -Verb RunAs) or hard-fail with a clear message.",
+        "priority": "HIGH"
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 69-71 (generated backend/.env CORS_ORIGINS)",
+        "issue": "Installer writes CORS_ORIGINS=\"http://localhost:3000\" but writes frontend/.env with REACT_APP_BACKEND_URL=http://<LAN-IP>:8001 and tells the user (line 123) to open http://<LAN-IP>:3000. Browser origin http://<LAN-IP>:3000 is not in allow_origins (server.py builds allow_origins strictly from CORS_ORIGINS), so every API call from the LAN IP / from a phone is blocked by CORS. Generate CORS_ORIGINS=\"http://localhost:3000,http://<ip>:3000\".",
+        "priority": "HIGH"
+      }
+    ],
+    "minor": [
+      {
+        "endpoint": "/app/setup_windows.ps1 line 58-59",
+        "issue": "Start-Service MongoDB uses -ErrorAction SilentlyContinue and then Ok \"MongoDB berjalan\" is printed unconditionally - a false success if the service fails to start. Re-query Get-Service and Fail if Status -ne 'Running'."
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 43",
+        "issue": "Invoke-WebRequest on Windows PowerShell 5.1 renders a progress bar for a ~350 MB download making it extremely slow/appear hung. Set $ProgressPreference='SilentlyContinue' (and [Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12 for older Win10 builds) before the download."
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 47-48",
+        "issue": "No sanity check on the downloaded file before running msiexec (e.g. (Get-Item $msi).Length -gt 50MB). A small HTML/XML error page written to disk would be handed to msiexec producing a cryptic 1620 error."
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 35-36",
+        "issue": "winget stdout/stderr fully suppressed (2>$null | Out-Null), so users/support get no diagnostics for the original 0x8a15000f error. Capture output to a log file under $env:TEMP."
+      },
+      {
+        "endpoint": "backend/auth.py set_auth_cookie",
+        "issue": "Informational: cookie uses secure=True + samesite=none, which browsers reject over plain http:// on the LAN deployment this installer creates. App still works because frontend/src/lib/api.js falls back to a Bearer token from localStorage; keep that fallback."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_security_iter2.py",
+    "/app/test_reports/pytest/iter3.xml"
+  ],
+  "action_items": [
+    "Replace the dead 'latest' MSI URL in setup_windows.ps1 with a version resolved from https://downloads.mongodb.org/current.json plus a verified hardcoded fallback (8.0.29-signed.msi) - the current fallback ALWAYS fails (403).",
+    "Add administrator elevation check / self-elevation before msiexec service install and Start-Service.",
+    "Generate CORS_ORIGINS including the detected LAN IP origin (http://<ip>:3000) in backend/.env.",
+    "Verify service status after Start-Service instead of printing unconditional 'MongoDB berjalan'.",
+    "Add $ProgressPreference='SilentlyContinue', TLS 1.2 enforcement, and a downloaded-file size check around the MSI download."
+  ],
+  "critical_code_review_comments": [
+    "Never hardcode a vendor 'latest' artifact path without verifying it exists; MongoDB only publishes versioned signed MSIs (current.json is the supported discovery endpoint).",
+    "PowerShell parse validated with PowerShell 7.4.6 Parser::ParseFile => 0 errors; here-string @\"...\"@ closed correctly, braces balanced, Step/Ok/Fail defined before first use, only Windows-only cmdlets (Get-Service, Start-Service, Get-NetIPAddress, winget) unresolvable on Linux as expected.",
+    "Fallback control flow itself is sound (winget attempt -> $wingetOk service probe -> download -> msiexec -> re-probe Get-Service -> Fail or continue); no dangling path, no unreachable branch."
+  ],
+  "updated_files": [],
+  "success_rate": {"backend": "100% (37/37 pytest, no app regression)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "None persisted. Test suite created transient QA users; /app/backend/tests/cleanup_iter2.py executed afterwards (4 synthetic QA users deleted, 3 login_attempts cleared, 0 remaining) so demo accounts are not locked.",
+  "should_call_test_agent_after_fix": true,
+  "should_main_agent_self_test": false,
+  "test_credentials": "/app/memory/test_credentials.md present and valid (admin agungsetiadi220@gmail.com / deliwifi123 works).",
+  "context_for_next_testing_agent": "PowerShell 7.4.6 (arm64) is installed at /opt/pwsha/pwsh and a parser-check script exists at /tmp/parse_check.ps1 (copy to /app if it must persist) - use it to statically validate setup_windows.ps1. Verify any new MongoDB download URL with: curl -s -o /dev/null -w '%{http_code} %{content_type}' -r 0-2047 <url> (expect 206 application/x-msi; 403 means the key does not exist). Always run 'python tests/cleanup_iter2.py' from /app/backend after the pytest suite.",
+  "rca_of_the_issue": "The developer added a MongoDB MSI fallback using the guessed URL '.../mongodb-windows-x86_64-latest.msi'. That S3 object does not exist, so CloudFront/S3 returns 403 AccessDenied; Invoke-WebRequest raises a terminating error, the catch block calls Fail() and the installer stops - identical user-visible outcome to the original winget 0x8a15000f failure. Mitigation: resolve the current production Windows base MSI from https://downloads.mongodb.org/current.json (verified working, e.g. 8.0.29/8.2.12/8.3.8 signed MSIs return 206 application/x-msi) with a hardcoded versioned fallback."
+}

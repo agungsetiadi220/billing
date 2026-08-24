@@ -49,7 +49,7 @@
 - P2: Manajemen perangkat CPE via GenieACS (restart, ganti SSID ONU dari jarak jauh)
 
 ## Paket Instalasi Lokal (23 Juni 2026)
-- `/app/SETUP_OTOMATIS.bat` + `/app/setup_windows.ps1` — setup satu klik: cek Python/Node, auto-install MongoDB via winget, auto-buat backend\.env & frontend\.env (deteksi IP LAN, random JWT secret), install deps, build frontend, opsi auto-startup, langsung jalankan aplikasi
+- `/app/SETUP_OTOMATIS.bat` + `/app/setup_windows.ps1` — setup satu klik: cek Python/Node, auto-install MongoDB (winget → fallback unduh MSI resmi via current.json + fallback versi 8.0.29 terverifikasi), self-elevation admin, auto-buat backend\.env & frontend\.env (deteksi IP LAN + CORS LAN, random JWT secret), install deps, build frontend, opsi auto-startup. Terverifikasi: parser PowerShell 0 error, URL MSI 206 valid (test_reports/iteration_4.json)
 - `/app/PANDUAN_INSTALASI_WINDOWS.md` — panduan lengkap self-host di laptop Windows 24 jam (cara termudah 3 langkah di bagian atas + panduan manual sebagai cadangan)
 - `/app/install.bat` — instalasi manual (venv, pip deps, yarn install, build frontend)
 - `/app/start.bat` — menjalankan backend (uvicorn :8001) + frontend (serve :3000)

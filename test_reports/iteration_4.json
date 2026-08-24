@@ -1,0 +1,53 @@
+{
+  "summary": "Retest of the Windows installer bugfix (/app/setup_windows.ps1) against the 3 CRITICAL/HIGH findings of iteration_3. All three are VERIFIED FIXED. (1) PowerShell syntax: real parser (PowerShell 7.4.6 at /opt/pwsha/pwsh, Parser::ParseFile via /app/tests/parse_check.ps1) => 0 parse errors; here-string closed, all commands resolvable/expected Windows-only. (2) Hardcoded fallback URL https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.0.29-signed.msi => ranged GET returns 206 application/x-msi (no longer 403). (3) Dynamic resolution verified: https://downloads.mongodb.org/current.json returns 200 (394 KB) with versions[] production_release=true ['8.3.8','8.2.12','8.0.29','7.0.40','6.0.29']; the exact filter used in the script (target=windows, edition=base -> .msi) resolves to https://fastdl.mongodb.org/windows/mongodb-windows-x86_64-8.3.8-signed.msi which also returns 206 application/x-msi. (4) Admin self-elevation block present at top before any msiexec/Start-Service; $PSCommandPath is valid because SETUP_OTOMATIS.bat launches with 'powershell -File'. (5) $ip detection (line 93-96) now happens BEFORE backend/.env creation (line 98-113) and CORS_ORIGINS is generated as 'http://localhost:3000,http://<ip>:3000' - matches server.py which builds allow_origins strictly from CORS_ORIGINS. (6) MongoDB service is re-probed after Start-Service and Fail()s if not Running; $ProgressPreference=SilentlyContinue + TLS 1.2 + 50MB MSI size check + winget log to $env:TEMP\\deliwifi-winget.log all present. msiexec arguments ADDLOCAL=ServerService SHOULD_INSTALL_COMPASS=0 confirmed valid per MongoDB 8.x unattended-install docs. Backend regression: 37/37 pytest pass (backend_test.py + test_security_iter2.py), cleanup_iter2.py run afterwards (4 synthetic QA users deleted, 3 login_attempts cleared, 0 remaining), bcrypt hashes $2b$/len=60 for admin/agen/pelanggan, admin login via public URL returns 200. No application code changed by the installer fix.",
+  "backend_issues": {
+    "critical": [],
+    "minor": [
+      {
+        "endpoint": "/app/setup_windows.ps1 lines 8-9 + Fail() line 14-19",
+        "issue": "After self-elevation the script runs in a NEW powershell window started without -NoExit, and Fail() ends with 'exit 1'. Any failure message (e.g. MongoDB download/install failure) flashes and the window closes instantly, so the user never reads it - the parent (non-elevated) window only shows 'Meminta izin Administrator...'. Suggest launching with '-NoExit' or adding a 'Read-Host \"Tekan Enter untuk keluar\"' inside Fail() and before the final success banner."
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 8",
+        "issue": "If the user clicks 'No' on the UAC prompt, Start-Process -Verb RunAs raises a non-terminating error ('The operation was canceled by the user') and the script still does 'exit 0' - looks like a success. Wrap in try/catch and Fail with 'Setup butuh izin Administrator, klik Yes / klik kanan Run as administrator'."
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 99-101 (backend/.env already exists)",
+        "issue": "No upgrade path for users who already ran the previous buggy installer: an existing backend/.env (with CORS_ORIGINS=\"http://localhost:3000\" only) is skipped, so the LAN-IP CORS fix will not reach them and phone/LAN access stays broken. Consider detecting a missing 'http://<ip>:3000' entry in the existing file and appending it (or printing a clear warning)."
+      },
+      {
+        "endpoint": "/app/backend/server.py line 23",
+        "issue": "allow_origins split on ',' without .strip(); a manually edited CORS_ORIGINS with spaces silently yields non-matching origins. Low risk (installer writes no spaces) but cheap to harden."
+      },
+      {
+        "endpoint": "/app/setup_windows.ps1 line 56-58 (dynamic version pick)",
+        "issue": "Informational: current.json ordering makes the script pick the newest production release (today 8.3.8) rather than the 8.0 LTS line. Works and verified downloadable, but pinning to the LTS series would be more predictable for end users."
+      }
+    ]
+  },
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": [
+    "/app/tests/parse_check.ps1",
+    "/app/backend/tests/backend_test.py",
+    "/app/backend/tests/test_security_iter2.py",
+    "/app/test_reports/pytest/iter4.xml"
+  ],
+  "action_items": [
+    "Keep the elevated window open on failure (-NoExit or Read-Host in Fail) so users can read the error message.",
+    "Handle UAC-decline from Start-Process -Verb RunAs instead of exiting 0.",
+    "Optionally patch an existing backend/.env so previous installs also get the LAN-IP CORS origin."
+  ],
+  "critical_code_review_comments": [
+    "MongoDB URL strategy is now correct: current.json discovery + verified versioned signed MSI fallback; both URLs return 206 application/x-msi.",
+    "msiexec ADDLOCAL=ServerService SHOULD_INSTALL_COMPASS=0 matches MongoDB's documented unattended feature names (ServerService installs mongod as a Windows service) - correct for this use case.",
+    "Control flow reviewed end-to-end: elevation -> tool checks -> yarn -> MongoDB (winget log -> dynamic/fallback MSI -> size check -> msiexec exit code -> service re-probe) -> $ip -> .env -> backend venv -> frontend build -> startup shortcut. No variable used before definition, every failure path calls Fail() with an actionable Indonesian message."
+  ],
+  "updated_files": ["/app/tests/parse_check.ps1"],
+  "success_rate": {"backend": "100% (37/37 pytest; installer static+URL verification 100% pass)", "frontend": "not tested (backend-only request)"},
+  "seed_data_creation": "None persisted; cleanup_iter2.py executed after pytest (login_attempts 0 remaining, synthetic QA users removed).",
+  "should_call_test_agent_after_fix": false,
+  "should_main_agent_self_test": true,
+  "test_credentials": "/app/memory/test_credentials.md valid; admin agungsetiadi220@gmail.com / deliwifi123 login returns 200 on the public URL.",
+  "context_for_next_testing_agent": "Installer can only be validated statically on Linux: use /opt/pwsha/pwsh -NoProfile -File /app/tests/parse_check.ps1 /app/setup_windows.ps1 (expect PARSE_ERRORS: 0) and verify MongoDB MSI URLs with curl -s -o /dev/null -w '%{http_code} %{content_type}' -r 0-2047 <url> (expect 206 application/x-msi). All iteration_3 CRITICAL/HIGH items are fixed; only UX-level installer polish remains (elevated window closing on failure, UAC decline, existing .env upgrade path). Always run 'python tests/cleanup_iter2.py' from /app/backend after pytest.",
+  "rca_of_the_issue": "Iteration_3 root cause (non-existent 'latest.msi' S3 key -> 403 -> Fail) is resolved: the script now resolves the current production Windows base MSI from current.json and falls back to a verified 8.0.29 signed MSI. Remaining residual risk for the original user report (winget 0x8a15000f) is only diagnosability: if the MSI path still fails on their machine, the elevated PowerShell window closes before the Fail message can be read."
+}

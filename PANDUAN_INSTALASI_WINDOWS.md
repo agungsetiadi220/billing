@@ -152,6 +152,7 @@ Agar pelanggan bisa bayar online asli dan akses portal dari luar rumah:
 | Masalah | Solusi |
 |---|---|
 | `python is not recognized` | Python belum masuk PATH. Install ulang, centang "Add Python to PATH". |
+| `winget` error `0x8a15000f` / gagal install MongoDB | Script terbaru otomatis fallback: mengunduh MongoDB langsung dari situs resmi. Jika masih gagal, install manual dari mongodb.com/try/download/community (centang "Install MongoDB as a Service"), lalu jalankan ulang `SETUP_OTOMATIS.bat`. |
 | Backend error koneksi MongoDB | Buka `services.msc` → pastikan service **MongoDB** status Running. |
 | Port 8001/3000 sudah dipakai | Tutup aplikasi lain yang memakai port itu, atau ganti port di `start.bat` dan `.env`. |
 | `yarn is not recognized` | Jalankan `npm install -g yarn`, tutup-buka Command Prompt. |

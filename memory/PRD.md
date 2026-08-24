@@ -55,6 +55,7 @@
 - `/app/start.bat` — menjalankan backend (uvicorn :8001) + frontend (serve :3000)
 - Catatan: script .bat/.ps1 belum diuji di Windows asli (environment dev Linux)
 - Fix (23 Juni 2026): requirements.txt dibersihkan dari library internal Emergent (`emergentintegrations`, `litellm` internal URL) yang tidak ada di PyPI publik — sebelumnya bikin `pip install` gagal di laptop user. Diverifikasi: dry-run venv bersih semua paket resolve dari PyPI publik, 37/37 test pass
+- Fix tambahan (23 Juni 2026): setup_windows.ps1 kini memfilter requirements.txt saat instalasi (membuang baris emergentintegrations/customer-assets) sebagai pengaman jika user menjalankan ZIP lama. Filter terverifikasi via simulasi
 
 ## Next Tasks
 1. Minta user mengisi Midtrans Server/Client Key & kredensial MikroTik di menu Pengaturan

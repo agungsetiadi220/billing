@@ -138,8 +138,14 @@ if (Test-Path $feEnv) {
 Step "5/7 Menginstall backend (bisa beberapa menit)"
 python -m venv (Join-Path $root "backend\venv")
 if ($LASTEXITCODE -ne 0) { Fail "Gagal membuat virtual environment Python" }
+
+# Pengaman: buang paket internal Emergent yang tidak ada di PyPI publik
+$reqFile = Join-Path $root "backend\requirements.txt"
+$reqClean = Join-Path $env:TEMP "deliwifi-requirements.txt"
+Get-Content $reqFile | Where-Object { $_ -notmatch "emergentintegrations" -and $_ -notmatch "customer-assets\.emergentagent\.com" } | Out-File -FilePath $reqClean -Encoding ascii
+
 & (Join-Path $root "backend\venv\Scripts\python.exe") -m pip install --upgrade pip | Out-Null
-& (Join-Path $root "backend\venv\Scripts\python.exe") -m pip install -r (Join-Path $root "backend\requirements.txt")
+& (Join-Path $root "backend\venv\Scripts\python.exe") -m pip install -r $reqClean
 if ($LASTEXITCODE -ne 0) { Fail "Gagal install dependensi backend" }
 Ok "Backend terinstall"
 

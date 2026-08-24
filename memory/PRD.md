@@ -56,6 +56,7 @@
 - Catatan: script .bat/.ps1 belum diuji di Windows asli (environment dev Linux)
 - Fix (23 Juni 2026): requirements.txt dibersihkan dari library internal Emergent (`emergentintegrations`, `litellm` internal URL) yang tidak ada di PyPI publik — sebelumnya bikin `pip install` gagal di laptop user. Diverifikasi: dry-run venv bersih semua paket resolve dari PyPI publik, 37/37 test pass
 - Fix tambahan (23 Juni 2026): setup_windows.ps1 kini memfilter requirements.txt saat instalasi (membuang baris emergentintegrations/customer-assets) sebagai pengaman jika user menjalankan ZIP lama. Filter terverifikasi via simulasi
+- Fix (23 Juni 2026, bug #2 ResolutionImpossible): requirements.txt ditulis ulang menjadi 9 paket inti sesuai import graph (fastapi, uvicorn, motor, pydantic[email], python-dotenv, PyJWT, bcrypt, httpx, routeros-api) dengan soft upper bounds — menghapus konflik grpcio-status/google-api-core. Terverifikasi testing agent iterasi 5: install bersih nyata sukses, app jalan di venv bersih, wheel Windows (win_amd64) tersedia, 37/37 test pass. Installer juga kini mengecek Python >= 3.10
 
 ## Next Tasks
 1. Minta user mengisi Midtrans Server/Client Key & kredensial MikroTik di menu Pengaturan

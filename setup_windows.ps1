@@ -32,7 +32,12 @@ foreach ($cmd in @("python", "node", "npm")) {
         Fail "$cmd tidak ditemukan. Install dulu dari situs resminya, lalu jalankan lagi SETUP_OTOMATIS.bat"
     }
 }
-Ok "Python & Node.js ditemukan"
+$pyVer = ((python --version) 2>&1) -replace "[^0-9.]", ""
+$pyParts = $pyVer.Split(".")
+if ([int]$pyParts[0] -lt 3 -or ([int]$pyParts[0] -eq 3 -and [int]$pyParts[1] -lt 10)) {
+    Fail "Python versi $pyVer terlalu lama. Install Python 3.11+ dari https://www.python.org/downloads/ (centang 'Add Python to PATH'), lalu jalankan lagi SETUP_OTOMATIS.bat"
+}
+Ok "Python $pyVer & Node.js ditemukan"
 
 Step "2/7 Mengecek Yarn"
 if (-not (Get-Command yarn -ErrorAction SilentlyContinue)) {
